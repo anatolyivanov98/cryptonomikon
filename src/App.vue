@@ -1,7 +1,14 @@
 <template>
   <div class="container mx-auto flex flex-col items-center bg-gray-100 p-4">
-    <div class="container">
-      <div class="w-full my-4"></div>
+
+    <div v-if="loading" class="fixed w-100 h-100 opacity-80 bg-purple-800 inset-0 z-50 flex items-center justify-center">
+      <svg class="animate-spin -ml-1 mr-3 h-12 w-12 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+      </svg>
+    </div>
+
+    <div v-else class="container">
       <section>
         <div class="flex">
           <div class="max-w-xs">
@@ -17,9 +24,24 @@
                   placeholder="Например DOGE"
                   v-model="ticker"
                   @keydown.enter="add"
+                  @input="inputTicker()"
               />
 
             </div>
+
+            <div class="flex bg-white shadow-md p-1 rounded-md shadow-md flex-wrap">
+              <span
+                  v-for="(autoTicker, idx) of autocompleteTickers"
+                  :key="idx"
+                  class="inline-flex items-center px-2 m-1 rounded-md text-xs font-medium bg-gray-300 text-gray-800 cursor-pointer"
+                  @click="add(autoTicker)"
+              >
+                  {{ autoTicker }}
+              </span>
+            </div>
+
+            <div v-if="hasTicker" class="text-sm text-red-600">Такой тикер уже добавлен</div>
+
           </div>
         </div>
         <button
@@ -143,15 +165,37 @@ export default {
       ticker: '',
       sel: null,
       tickers: [],
-      graph: []
+      graph: [],
+      loading: true,
+      hasTicker: false,
+      allTickers: null,
+      autocompleteTickers: []
     }
   },
 
+  async created() {
+    const arrayTickersValue = await fetch('https://min-api.cryptocompare.com/data/all/coinlist?summary=true')
+    const data = await arrayTickersValue.json()
+    this.allTickers = data.Data
+    this.loading = false
+  },
+
   methods: {
-    add() {
+    add(t) {
+      if (typeof t === "string") {
+        this.ticker = t
+      }
+
       const currentTicker = {
         name: this.ticker,
         price: '_'
+      }
+
+      for (let ticker of this.tickers) {
+        if (ticker.name === currentTicker.name) {
+          this.hasTicker = true
+          return false
+        }
       }
 
       this.tickers.push(currentTicker)
@@ -167,6 +211,7 @@ export default {
       }, 3000)
 
       this.ticker = ''
+      this.autocompleteTickers = []
     },
 
     handleDelete(tickerToRemove) {
@@ -186,7 +231,25 @@ export default {
           ? 100
           : 5 + ((price - minValue) * 95) / (maxValue - minValue)
       );
-    }
+    },
+
+    inputTicker() {
+      this.autocompleteTickers = []
+      this.hasTicker = false
+      let arrKeys = Object.keys(this.allTickers)
+      for (let i = 1; i < this.ticker.length + 1; i++) {
+        for (let key of arrKeys) {
+          if (key.substring(0,i) === this.ticker) {
+            this.autocompleteTickers.push(key)
+            if (this.autocompleteTickers.length === 4) {
+              break
+            }
+          }
+        }
+      }
+      console.log(this.autocompleteTickers)
+    },
+
   }
 
 }
