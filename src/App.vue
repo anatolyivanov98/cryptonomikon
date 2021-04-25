@@ -177,10 +177,35 @@ export default {
     const arrayTickersValue = await fetch('https://min-api.cryptocompare.com/data/all/coinlist?summary=true')
     const data = await arrayTickersValue.json()
     this.allTickers = data.Data
+
+    const tickersData = localStorage.getItem('criptonomikon-list')
+
+    if (tickersData) {
+      this.tickers = JSON.parse(tickersData)
+      this.tickers.forEach(ticker => {
+        this.subscribeToUpdates(ticker.name)
+      })
+    }
+
     this.loading = false
   },
 
   methods: {
+    subscribeToUpdates(tickerName) {
+      setInterval(async() => {
+        const f = await fetch(`https://min-api.cryptocompare.com/data/price?fsym=${tickerName}&tsyms=USD&api_key=ab60c50b9977784ddf02a12c45956e6b80d3a29a47285df3fcc0272b482a6cf5`)
+        const data = await f.json()
+        this.tickers.find(t => t.name === tickerName).price = data.USD > 1
+            ? data.USD.toFixed(2)
+            : data.USD.toPrecision(2)
+        if(this.sel?.name === tickerName) {
+          this.graph.push(data.USD)
+        }
+      }, 3000)
+      this.ticker = ''
+      this.autocompleteTickers = []
+    },
+
     add(t) {
       if (typeof t === "string") {
         this.ticker = t
@@ -199,19 +224,10 @@ export default {
       }
 
       this.tickers.push(currentTicker)
-      setInterval(async() => {
-        const f = await fetch(`https://min-api.cryptocompare.com/data/price?fsym=${currentTicker.name}&tsyms=USD&api_key=ab60c50b9977784ddf02a12c45956e6b80d3a29a47285df3fcc0272b482a6cf5`)
-        const data = await f.json()
-        this.tickers.find(t => t.name === currentTicker.name).price = data.USD > 1
-            ? data.USD.toFixed(2)
-            : data.USD.toPrecision(2)
-        if(this.sel?.name === currentTicker.name) {
-          this.graph.push(data.USD)
-        }
-      }, 3000)
 
-      this.ticker = ''
-      this.autocompleteTickers = []
+      localStorage.setItem('criptonomikon-list', JSON.stringify(this.tickers))
+
+      this.subscribeToUpdates(currentTicker.name)
     },
 
     handleDelete(tickerToRemove) {
@@ -247,7 +263,6 @@ export default {
           }
         }
       }
-      console.log(this.autocompleteTickers)
     },
 
   }
